@@ -1,58 +1,67 @@
 'use client';
 
-import { JobApplication, ApplicationStatus } from '@/lib/types';
+import { JobAnalysis, AnalysisStatus } from '@/lib/types';
 
 interface StatisticsPanelProps {
-    applications: JobApplication[];
+    analyses: JobAnalysis[];
 }
 
-export default function StatisticsPanel({ applications }: StatisticsPanelProps) {
+export default function StatisticsPanel({ analyses }: StatisticsPanelProps) {
     // Calculate statistics
-    const totalApps = applications.length;
-    const appliedCount = applications.filter(app => app.status === ApplicationStatus.APPLIED).length;
-    const failedCount = applications.filter(app => app.status === ApplicationStatus.FAILED).length;
-    const inProgressCount = totalApps - appliedCount - failedCount;
+    const totalAnalyses = analyses.length;
+    const completeCount = analyses.filter(a => a.status === AnalysisStatus.COMPLETE).length;
+    const failedCount = analyses.filter(a => a.status === AnalysisStatus.FAILED).length;
+    const inProgressCount = totalAnalyses - completeCount - failedCount;
+
+    // Count total documents generated
+    const totalDocs = analyses.reduce((sum, a) => sum + (a.documents?.length || 0), 0);
+
+    // Count successful DOCX generations
+    const successfulDocx = analyses.reduce((sum, a) => {
+        return sum + (a.documents?.filter(d => d.docxBuffer).length || 0);
+    }, 0);
 
     // Site breakdown
-    const siteBreakdown = applications.reduce((acc, app) => {
-        const site = app.job.source;
+    const siteBreakdown = analyses.reduce((acc, a) => {
+        const site = a.job.source;
         acc[site] = (acc[site] || 0) + 1;
         return acc;
     }, {} as Record<string, number>);
 
     // Status breakdown
-    const statusBreakdown = applications.reduce((acc, app) => {
-        acc[app.status] = (acc[app.status] || 0) + 1;
+    const statusBreakdown = analyses.reduce((acc, a) => {
+        acc[a.status] = (acc[a.status] || 0) + 1;
         return acc;
-    }, {} as Record<ApplicationStatus, number>);
+    }, {} as Record<AnalysisStatus, number>);
 
-    const successRate = totalApps > 0 ? ((appliedCount / totalApps) * 100).toFixed(1) : '0';
+    const successRate = totalAnalyses > 0 ? ((completeCount / totalAnalyses) * 100).toFixed(1) : '0';
+    const docGenRate = totalDocs > 0 ? ((successfulDocx / totalDocs) * 100).toFixed(1) : '0';
 
-    if (totalApps === 0) return null;
+    if (totalAnalyses === 0) return null;
 
     return (
         <div className="mb-8 bg-gradient-to-br from-gray-800 to-gray-900 rounded-2xl p-6 border border-gray-700 shadow-2xl">
             <h2 className="text-2xl font-bold mb-6 bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-purple-500">
-                📊 Application Statistics
+                📊 Analysis Statistics
             </h2>
 
             {/* Key Metrics */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
                 <div className="bg-gray-700/50 rounded-xl p-4 text-center backdrop-blur-sm">
-                    <div className="text-3xl font-bold text-white mb-1">{totalApps}</div>
-                    <div className="text-gray-400 text-sm">Total Applications</div>
+                    <div className="text-3xl font-bold text-white mb-1">{totalAnalyses}</div>
+                    <div className="text-gray-400 text-sm">Total Jobs Analyzed</div>
                 </div>
                 <div className="bg-green-600/20 rounded-xl p-4 text-center backdrop-blur-sm border border-green-500/30">
-                    <div className="text-3xl font-bold text-green-400 mb-1">{appliedCount}</div>
-                    <div className="text-gray-400 text-sm">✅ Applied</div>
+                    <div className="text-3xl font-bold text-green-400 mb-1">{completeCount}</div>
+                    <div className="text-gray-400 text-sm">✅ Complete</div>
                 </div>
                 <div className="bg-blue-600/20 rounded-xl p-4 text-center backdrop-blur-sm border border-blue-500/30">
-                    <div className="text-3xl font-bold text-blue-400 mb-1">{inProgressCount}</div>
-                    <div className="text-gray-400 text-sm">⏳ In Progress</div>
+                    <div className="text-3xl font-bold text-blue-400 mb-1">{totalDocs}</div>
+                    <div className="text-gray-400 text-sm">📄 Documents Generated</div>
                 </div>
                 <div className="bg-purple-600/20 rounded-xl p-4 text-center backdrop-blur-sm border border-purple-500/30">
-                    <div className="text-3xl font-bold text-purple-400 mb-1">{successRate}%</div>
-                    <div className="text-gray-400 text-sm">Success Rate</div>
+                    <div className="text-3xl font-bold text-purple-400 mb-1">{docGenRate}%</div>
+                    <div className="text-gray-400 text-sm">DOCX Success Rate</div>
                 </div>
             </div>
 
@@ -74,19 +83,18 @@ export default function StatisticsPanel({ applications }: StatisticsPanelProps) 
             {/* Status Breakdown */}
             <div>
                 <h3 className="text-lg font-semibold text-gray-300 mb-3">📈 By Status</h3>
-                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2">
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-2">
                     {Object.entries(statusBreakdown).map(([status, count]) => {
                         const statusLabels = {
-                            [ApplicationStatus.PENDING]: '🔍 Found',
-                            [ApplicationStatus.GENERATING_RESUME]: '📝 Resume',
-                            [ApplicationStatus.RESUME_READY]: '✅ Ready',
-                            [ApplicationStatus.APPLYING]: '📧 Sending',
-                            [ApplicationStatus.APPLIED]: '✅ Applied',
-                            [ApplicationStatus.FAILED]: '❌ Failed',
+                            [AnalysisStatus.PENDING]: '⏳ Pending',
+                            [AnalysisStatus.ANALYZING]: '🔬 Analyzing',
+                            [AnalysisStatus.GENERATING_DOCUMENTS]: '📝 Generating',
+                            [AnalysisStatus.COMPLETE]: '✅ Complete',
+                            [AnalysisStatus.FAILED]: '❌ Failed',
                         };
                         return (
                             <div key={status} className="bg-gray-700/30 rounded-lg p-2 text-center">
-                                <div className="text-gray-400 text-xs mb-1">{statusLabels[status as ApplicationStatus]}</div>
+                                <div className="text-gray-400 text-xs mb-1">{statusLabels[status as AnalysisStatus]}</div>
                                 <div className="text-white font-bold">{count}</div>
                             </div>
                         );

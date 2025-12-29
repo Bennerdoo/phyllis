@@ -1,23 +1,22 @@
 'use client';
 
-import { ApplicationStatus } from '@/lib/types';
+import { AnalysisStatus } from '@/lib/types';
 
 interface ProgressTimelineProps {
-    currentStatus: ApplicationStatus;
-    stageTimestamps?: Partial<Record<ApplicationStatus, string>>;
+    currentStatus: AnalysisStatus;
+    stageTimestamps?: Partial<Record<AnalysisStatus, string>>;
 }
 
 const STAGES = [
-    { status: ApplicationStatus.PENDING, label: 'Found', icon: '🔍' },
-    { status: ApplicationStatus.GENERATING_RESUME, label: 'Resume', icon: '📝' },
-    { status: ApplicationStatus.RESUME_READY, label: 'Ready', icon: '✅' },
-    { status: ApplicationStatus.APPLYING, label: 'Applying', icon: '📧' },
-    { status: ApplicationStatus.APPLIED, label: 'Applied', icon: '✅' },
+    { status: AnalysisStatus.PENDING, label: 'Pending', icon: '⏳' },
+    { status: AnalysisStatus.ANALYZING, label: 'Analyzing', icon: '🔬' },
+    { status: AnalysisStatus.GENERATING_DOCUMENTS, label: 'Documents', icon: '📝' },
+    { status: AnalysisStatus.COMPLETE, label: 'Complete', icon: '✅' },
 ];
 
 export default function ProgressTimeline({ currentStatus, stageTimestamps = {} }: ProgressTimelineProps) {
     const currentStageIndex = STAGES.findIndex(s => s.status === currentStatus);
-    const isFailed = currentStatus === ApplicationStatus.FAILED;
+    const isFailed = currentStatus === AnalysisStatus.FAILED;
 
     // Format timestamp to show time only
     const formatTime = (timestamp?: string) => {
@@ -32,7 +31,7 @@ export default function ProgressTimeline({ currentStatus, stageTimestamps = {} }
                 <span className="text-2xl">❌</span>
                 <div className="flex-1">
                     <div className="text-red-400 font-bold">Failed</div>
-                    <div className="text-red-300 text-xs">Application process encountered an error</div>
+                    <div className="text-red-300 text-xs">Analysis process encountered an error</div>
                 </div>
             </div>
         );
@@ -44,7 +43,7 @@ export default function ProgressTimeline({ currentStatus, stageTimestamps = {} }
                 {STAGES.map((stage, index) => {
                     const isCompleted = index < currentStageIndex;
                     const isCurrent = index === currentStageIndex;
-                    const timestamp = stageTimestamps[stage.status];
+                    const timestamp = stageTimestamps?.[stage.status];
 
                     return (
                         <div key={stage.status} className="flex items-center flex-shrink-0">

@@ -1,10 +1,11 @@
 import puppeteer from 'puppeteer';
 import { generateText } from './gemini';
-import { Job } from './types';
+import { Job, JobRequirements, DocumentType } from './types';
 
 /**
- * AI-Powered Generic Job Scraper
- * Uses Gemini AI to intelligently extract job listings from any website's HTML
+ * AI-Powered Job Scraper for Computer Science Positions
+ * Uses Gemini AI to intelligently extract CS/tech job listings from any website's HTML
+ * Extracts detailed requirements and detects needed documents
  */
 export async function scrapeJobsWithAI(
     url: string,
@@ -42,23 +43,52 @@ export async function scrapeJobsWithAI(
         await browser.close();
         browser = undefined;
 
-        // Use Gemini AI to extract job listings from HTML
-        const prompt = `You are a job data extraction expert. Extract job listings from the following HTML page.
+        // Use Gemini AI to extract CS/tech job listings from HTML
+        const prompt = `You are a computer science job data extraction expert. Extract ONLY computer science, software engineering, and tech-related job listings from the following HTML page.
 
 HTML Content:
 ${html.substring(0, 50000)} 
 
-Extract up to ${limit} job listings and return them as a JSON array. Each job should have:
+IMPORTANT FILTERING RULES:
+- ONLY include jobs related to: software engineering, computer science, programming, web development, mobile development, data science, AI/ML, DevOps, system administration, IT, cybersecurity, QA/testing, tech support, technical roles
+- EXCLUDE: non-tech jobs, marketing, sales, customer service (unless technical), management (unless technical/engineering management), design (unless UI/UX or technical design)
+
+Extract up to ${limit} COMPUTER SCIENCE/TECH job listings and return them as a JSON array. Each job should have:
 - title: string (job title)
 - company: string (company name)
 - location: string (job location, default to "Remote" if not specified)
 - url: string (full URL to the job posting, construct from relative URLs if needed using base URL: ${url})
-- description: string (brief job description or requirements, maximum 500 characters)
+- description: string (job description including requirements, maximum 1000 characters)
+- requirements: object with:
+  - technicalSkills: array of required technical skills (languages, frameworks, tools)
+  - experienceLevel: one of "Entry Level", "Junior", "Mid-Level", "Senior", "Lead", "Not Specified"
+  - yearsOfExperience: string like "3-5 years" or "5+ years" or null
+  - education: array of education requirements (e.g., ["Bachelor's in Computer Science"])
+  - certifications: array of certifications if mentioned, or empty array
+  - softSkills: array of soft skills mentioned, or empty array
+  - responsibilities: array of main job responsibilities
+- documentsNeeded: array of strings from ["resume", "cv", "cover_letter"] - what documents the job requires
 
 Return ONLY valid JSON array, no markdown formatting, no explanations. Example format:
-[{"title":"Software Engineer","company":"Acme Corp","location":"Remote","url":"https://example.com/job/123","description":"We are looking for..."}]
+[{
+  "title":"Software Engineer",
+  "company":"Acme Corp",
+  "location":"Remote",
+  "url":"https://example.com/job/123",
+  "description":"We are looking for a software engineer...",
+  "requirements":{
+    "technicalSkills":["JavaScript","React","Node.js"],
+    "experienceLevel":"Mid-Level",
+    "yearsOfExperience":"3-5 years",
+    "education":["Bachelor's in Computer Science or related field"],
+    "certifications":[],
+    "softSkills":["Communication","Teamwork"],
+    "responsibilities":["Develop web applications","Code reviews","Collaborate with team"]
+  },
+  "documentsNeeded":["resume","cover_letter"]
+}]
 
-If no jobs are found, return an empty array: []`;
+If no computer science/tech jobs are found, return an empty array: []`;
 
         const aiResponse = await generateText(prompt);
 
@@ -77,20 +107,30 @@ If no jobs are found, return an empty array: []`;
             return [];
         }
 
-        // Transform to Job objects
+        // Transform to Job objects with enhanced fields
         const jobResults: Job[] = jobs.slice(0, limit).map((job, index) => ({
-            id: Buffer.from(`${sourceName}-${job.url || index}`).toString('base64'),
+            id: Buffer.from(`${sourceName}-${job.url || index}-${Date.now()}`).toString('base64'),
             title: job.title || 'Unknown Title',
             company: job.company || 'Unknown Company',
             location: job.location || 'Remote',
             url: job.url || url,
             description: job.description || '',
             postedAt: new Date().toISOString(),
-            tags: ['Remote', 'Tech'],
+            tags: ['Computer Science', 'Tech', ...(job.requirements?.technicalSkills?.slice(0, 3) || [])],
             source: sourceName,
+            requirements: job.requirements || {
+                technicalSkills: [],
+                experienceLevel: 'Not Specified',
+                education: [],
+                softSkills: [],
+                responsibilities: [],
+            },
+            documentsNeeded: job.documentsNeeded?.map((d: string) => d.toLowerCase() as DocumentType) ||
+                [DocumentType.RESUME, DocumentType.COVER_LETTER],
+            aiAnalysis: `Job requires ${job.requirements?.experienceLevel || 'unspecified'} level candidate with skills in ${job.requirements?.technicalSkills?.slice(0, 3).join(', ') || 'various technologies'}.`,
         }));
 
-        console.log(`[AI Scraper] Extracted ${jobResults.length} jobs from ${sourceName}`);
+        console.log(`[AI Scraper] Extracted ${jobResults.length} CS/tech jobs from ${sourceName}`);
         return jobResults;
 
     } catch (error) {

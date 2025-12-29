@@ -1,44 +1,40 @@
 'use client';
 
-import { JobApplication, ApplicationStatus } from '@/lib/types';
+import { JobAnalysis, AnalysisStatus, DocumentType } from '@/lib/types';
 import ProgressTimeline from './ProgressTimeline';
 
 interface JobCardProps {
-    application: JobApplication;
+    analysis: JobAnalysis;
 }
 
-const STATUS_LABELS: Record<ApplicationStatus, string> = {
-    [ApplicationStatus.PENDING]: '🔍 Found',
-    [ApplicationStatus.GENERATING_RESUME]: '📝 Generating Resume',
-    [ApplicationStatus.RESUME_READY]: '✅ Resume Ready',
-    [ApplicationStatus.APPLYING]: '📧 Applying',
-    [ApplicationStatus.APPLIED]: '✅ Applied',
-    [ApplicationStatus.FAILED]: '❌ Failed',
+const STATUS_LABELS: Record<AnalysisStatus, string> = {
+    [AnalysisStatus.PENDING]: '⏳ Pending',
+    [AnalysisStatus.ANALYZING]: '🔬 Analyzing',
+    [AnalysisStatus.GENERATING_DOCUMENTS]: '📝 Generating Documents',
+    [AnalysisStatus.COMPLETE]: '✅ Complete',
+    [AnalysisStatus.FAILED]: '❌ Failed',
 };
 
-const STATUS_COLORS: Record<ApplicationStatus, string> = {
-    [ApplicationStatus.PENDING]: 'bg-gray-700 text-gray-300',
-    [ApplicationStatus.GENERATING_RESUME]: 'bg-blue-600 text-white',
-    [ApplicationStatus.RESUME_READY]: 'bg-green-600 text-white',
-    [ApplicationStatus.APPLYING]: 'bg-purple-600 text-white',
-    [ApplicationStatus.APPLIED]: 'bg-green-500 text-white',
-    [ApplicationStatus.FAILED]: 'bg-red-600 text-white',
+const STATUS_COLORS: Record<AnalysisStatus, string> = {
+    [AnalysisStatus.PENDING]: 'bg-gray-700 text-gray-300',
+    [AnalysisStatus.ANALYZING]: 'bg-blue-600 text-white',
+    [AnalysisStatus.GENERATING_DOCUMENTS]: 'bg-purple-600 text-white',
+    [AnalysisStatus.COMPLETE]: 'bg-green-500 text-white',
+    [AnalysisStatus.FAILED]: 'bg-red-600 text-white',
 };
 
-const SITE_COLORS: Record<string, string> = {
-    'We Work Remotely': 'bg-blue-500/20 text-blue-400 border-blue-500/30',
-    'RemoteOK': 'bg-green-500/20 text-green-400 border-green-500/30',
-    'Remote.co': 'bg-purple-500/20 text-purple-400 border-purple-500/30',
-    'FlexJobs': 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30',
+const DOC_TYPE_LABELS: Record<DocumentType, string> = {
+    [DocumentType.RESUME]: '📄 Resume',
+    [DocumentType.CV]: '📑 CV',
+    [DocumentType.COVER_LETTER]: '✉️ Cover Letter',
 };
 
-export default function JobCard({ application }: JobCardProps) {
-    const { job, status, error, stageTimestamps } = application;
-    const siteColor = SITE_COLORS[job.source] || 'bg-gray-500/20 text-gray-400 border-gray-500/30';
+export default function JobCard({ analysis }: JobCardProps) {
+    const { job, status, error, documents } = analysis;
 
     // Calculate time elapsed
     const getTimeElapsed = () => {
-        const created = new Date(application.createdAt);
+        const created = new Date(analysis.createdAt);
         const now = new Date();
         const diffMs = now.getTime() - created.getTime();
         const diffMins = Math.floor(diffMs / 60000);
@@ -49,17 +45,21 @@ export default function JobCard({ application }: JobCardProps) {
         return `${diffHours}h ago`;
     };
 
+    const downloadDocument = (jobId: string, type: DocumentType) => {
+        window.open(`/api/documents/download?jobId=${jobId}&type=${type}`, '_blank');
+    };
+
     return (
-        <div className="bg-gradient-to-br from-gray-800 to-gray-900 rounded-xl p-5 border border-gray-700 hover:border-purple-500 transition-all duration-300 shadow-xl hover:shadow-2xl hover:shadow-purple-500/10 transform hover:-translate-y-1">
+        <div className="bg-gradient-to-br from-gray-800 to-gray-900 rounded-xl p-5 border border-gray-700 hover:border-purple-500 transition-all duration-300 shadow-xl hover:shadow-2xl hover:shadow-purple-500/10">
             {/* Header */}
             <div className="flex justify-between items-start mb-4">
                 <div className="flex-1 mr-2">
-                    <h3 className="text-lg font-bold text-white mb-1 line-clamp-2 hover:line-clamp-none transition-all" title={job.title}>
+                    <h3 className="text-lg font-bold text-white mb-1 line-clamp-2" title={job.title}>
                         {job.title}
                     </h3>
                     <p className="text-blue-400 font-medium text-sm">{job.company}</p>
                 </div>
-                <span className={`text-xs px-3 py-1.5 rounded-full font-semibold whitespace-nowrap border ${siteColor}`}>
+                <span className="text-xs px-3 py-1.5 rounded-full font-semibold whitespace-nowrap border bg-purple-500/20 text-purple-400 border-purple-500/30">
                     {job.source}
                 </span>
             </div>
@@ -67,7 +67,7 @@ export default function JobCard({ application }: JobCardProps) {
             {/* Location & Time */}
             <div className="flex items-center justify-between mb-4 text-xs">
                 <p className="text-gray-400 flex items-center gap-2">
-                    <span className="inline-block w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
+                    <span className="inline-block w-2 h-2 rounded-full bg-green-500"></span>
                     {job.location}
                 </p>
                 <p className="text-gray-500">{getTimeElapsed()}</p>
@@ -75,7 +75,7 @@ export default function JobCard({ application }: JobCardProps) {
 
             {/* Progress Timeline */}
             <div className="mb-4">
-                <ProgressTimeline currentStatus={status} stageTimestamps={stageTimestamps} />
+                <ProgressTimeline currentStatus={status} stageTimestamps={analysis.stageTimestamps} />
             </div>
 
             {/* Current Status Badge */}
@@ -87,6 +87,49 @@ export default function JobCard({ application }: JobCardProps) {
                 </span>
             </div>
 
+            {/* Job Requirements */}
+            {job.requirements && status !== AnalysisStatus.PENDING && (
+                <div className="mb-4 p-3 bg-blue-900/20 border border-blue-500/30 rounded-lg">
+                    <p className="text-blue-400 text-xs font-bold mb-2">📋 Requirements</p>
+                    <div className="text-xs text-gray-300 space-y-1">
+                        <p><span className="font-semibold">Experience:</span> {job.requirements.experienceLevel}</p>
+                        {job.requirements.technicalSkills && job.requirements.technicalSkills.length > 0 && (
+                            <p><span className="font-semibold">Skills:</span> {job.requirements.technicalSkills.slice(0, 3).join(', ')}</p>
+                        )}
+                        {job.documentsNeeded && job.documentsNeeded.length > 0 && (
+                            <p><span className="font-semibold">Documents:</span> {job.documentsNeeded.join(', ')}</p>
+                        )}
+                    </div>
+                </div>
+            )}
+
+            {/* AI Analysis */}
+            {job.aiAnalysis && (
+                <div className="mb-4 p-3 bg-purple-900/20 border border-purple-500/30 rounded-lg">
+                    <p className="text-purple-400 text-xs font-bold mb-1">🤖 AI Analysis</p>
+                    <p className="text-gray-300 text-xs">{job.aiAnalysis}</p>
+                </div>
+            )}
+
+            {/* Generated Documents */}
+            {documents && documents.length > 0 && (
+                <div className="mb-4 p-3 bg-green-900/20 border border-green-500/30 rounded-lg">
+                    <p className="text-green-400 text-xs font-bold mb-2">📁 Generated Documents</p>
+                    <div className="flex flex-wrap gap-2">
+                        {documents.map((doc) => (
+                            <button
+                                key={doc.type}
+                                onClick={() => downloadDocument(job.id, doc.type)}
+                                className="px-3 py-1.5 bg-green-600/30 hover:bg-green-600/50 border border-green-500/50 rounded text-xs font-semibold transition-all"
+                                title={doc.docxBuffer ? 'Download DOCX' : 'Download as text (DOCX generation failed)'}
+                            >
+                                {DOC_TYPE_LABELS[doc.type]} {doc.docxBuffer ? '📥' : '📝'}
+                            </button>
+                        ))}
+                    </div>
+                </div>
+            )}
+
             {/* Error Message */}
             {error && (
                 <div className="mb-4 p-3 bg-red-900/20 border border-red-500/30 rounded-lg">
@@ -94,13 +137,6 @@ export default function JobCard({ application }: JobCardProps) {
                         <span className="font-bold">Error:</span> {error}
                     </p>
                 </div>
-            )}
-
-            {/* Description Preview */}
-            {job.description && (
-                <p className="text-gray-400 text-xs mb-4 line-clamp-2">
-                    {job.description}
-                </p>
             )}
 
             {/* Action Button */}

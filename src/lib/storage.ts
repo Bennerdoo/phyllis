@@ -1,4 +1,4 @@
-import { JobApplication, ApplicationStatus, Job } from './types';
+import { JobApplication, ApplicationStatus, Job, JobAnalysis, AnalysisStatus, GeneratedDocument } from './types';
 
 // Simple in-memory storage (can be replaced with database later)
 class ApplicationStorage {
@@ -60,5 +60,76 @@ class ApplicationStorage {
     }
 }
 
-// Singleton instance
+// New storage for job analysis system
+class AnalysisStorage {
+    private analyses: Map<string, JobAnalysis> = new Map();
+
+    add(job: Job): JobAnalysis {
+        const now = new Date().toISOString();
+        const analysis: JobAnalysis = {
+            job,
+            status: AnalysisStatus.PENDING,
+            createdAt: now,
+            updatedAt: now,
+            documents: [],
+            stageTimestamps: {
+                [AnalysisStatus.PENDING]: now,
+            },
+        };
+        this.analyses.set(job.id, analysis);
+        return analysis;
+    }
+
+    update(jobId: string, updates: Partial<JobAnalysis>): JobAnalysis | null {
+        const analysis = this.analyses.get(jobId);
+        if (!analysis) return null;
+
+        const now = new Date().toISOString();
+        const updated = {
+            ...analysis,
+            ...updates,
+            updatedAt: now,
+        };
+
+        // Track stage timestamps when status changes
+        if (updates.status && updates.status !== analysis.status) {
+            updated.stageTimestamps = {
+                ...analysis.stageTimestamps,
+                [updates.status]: now,
+            };
+        }
+
+        this.analyses.set(jobId, updated);
+        return updated;
+    }
+
+    addDocument(jobId: string, document: GeneratedDocument): JobAnalysis | null {
+        const analysis = this.analyses.get(jobId);
+        if (!analysis) return null;
+
+        const updated = {
+            ...analysis,
+            documents: [...(analysis.documents || []), document],
+            updatedAt: new Date().toISOString(),
+        };
+
+        this.analyses.set(jobId, updated);
+        return updated;
+    }
+
+    get(jobId: string): JobAnalysis | null {
+        return this.analyses.get(jobId) || null;
+    }
+
+    getAll(): JobAnalysis[] {
+        return Array.from(this.analyses.values());
+    }
+
+    clear(): void {
+        this.analyses.clear();
+    }
+}
+
+// Singleton instances
 export const applicationStorage = new ApplicationStorage();
+export const analysisStorage = new AnalysisStorage();

@@ -5,22 +5,34 @@ export interface JobSiteConfig {
     category: 'global' | 'africa' | 'ai_data';
 }
 
-// Curated list of 8 most reliable and fast-loading job sites
-// These sites are tested to work well with AI scraping and have high success rates
+// Curated list of 20 most reliable job sites for daily scraping
+// Selected based on: fast page loads, high AI scraping success rates, quality CS/tech jobs
 export const JOB_SITES: JobSiteConfig[] = [
-    // Top Global Remote Tech Platforms (5) - Fast, reliable, high-quality jobs
+    // Top Global Remote Tech Platforms (10) - Fast, reliable, high-quality jobs
     { name: 'WeWorkRemotely', url: 'https://weworkremotely.com/categories/remote-programming-jobs', category: 'global' },
     { name: 'RemoteOK', url: 'https://remoteok.com/remote-dev-jobs', category: 'global' },
     { name: 'Remotive', url: 'https://remotive.com/remote-jobs/software-dev', category: 'global' },
     { name: 'JustRemote', url: 'https://justremote.co/remote-developer-jobs', category: 'global' },
     { name: 'Himalayas', url: 'https://himalayas.app/jobs?filter=remote', category: 'global' },
+    { name: 'Remote.co', url: 'https://remote.co/remote-jobs/developer/', category: 'global' },
+    { name: 'Wellfound', url: 'https://wellfound.com/jobs', category: 'global' },
+    { name: 'Arc.dev', url: 'https://arc.dev/remote-jobs', category: 'global' },
+    { name: 'DailyRemote', url: 'https://dailyremote.com/remote-developer-jobs', category: 'global' },
+    { name: 'Working Nomads', url: 'https://www.workingnomads.com/jobs?category=development', category: 'global' },
 
-    // Africa-Focused Platforms (2) - Tested and reliable
+    // Africa-Focused Platforms (5) - Expanding Africa coverage
     { name: 'RemoteAfrica', url: 'https://remoteafrica.io/remote-jobs', category: 'africa' },
     { name: 'Remote4Africa', url: 'https://remote4africa.com/', category: 'africa' },
+    { name: 'BrighterMonday Kenya', url: 'https://www.brightermonday.co.ke/jobs/technology', category: 'africa' },
+    { name: 'Fuzu Kenya', url: 'https://www.fuzu.com/ke/jobs', category: 'africa' },
+    { name: 'Africa Startup Jobs', url: 'https://launchafricajobs.vc/', category: 'africa' },
 
-    // AI/Data Platforms (1) - High-paying opportunities
+    // AI/Data Platforms (5) - High-paying AI training opportunities
     { name: 'Remotasks', url: 'https://www.remotasks.com/', category: 'ai_data' },
+    { name: 'Scale AI', url: 'https://scale.com/careers', category: 'ai_data' },
+    { name: 'DataAnnotation.tech', url: 'https://www.dataannotation.tech/', category: 'ai_data' },
+    { name: 'Appen', url: 'https://appen.com/careers/', category: 'ai_data' },
+    { name: 'TELUS Digital AI', url: 'https://www.telusinternational.com/careers', category: 'ai_data' },
 ];
 
 // Full list available - uncomment to scrape more sites (slower but more comprehensive)
