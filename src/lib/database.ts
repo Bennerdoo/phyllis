@@ -1,19 +1,42 @@
-import Database from 'better-sqlite3';
+// Database module - optional for serverless deployments
+// Falls back to in-memory storage when SQLite is not available
 import path from 'path';
 import { UserProfile, Job, JobAnalysis, GeneratedDocument, DocumentType } from './types';
 
 /**
  * SQLite Database for Phyllis
  * Stores user profiles, job history, scraping analytics, and generated documents
+ * NOTE: Only works in local/server environments. Falls back to memory storage in serverless.
  */
+
+// Try to import better-sqlite3, but don't fail if it's not available (Vercel/serverless)
+let Database: any = null;
+let isAvailable = false;
+
+try {
+    Database = require('better-sqlite3');
+    isAvailable = true;
+} catch (error) {
+    console.warn('[Database] SQLite not available in this environment. Using in-memory storage fallback.');
+    isAvailable = false;
+}
 
 // Database path - stores in project root
 const DB_PATH = path.join(process.cwd(), 'phyllis.db');
 
 // Initialize database connection
-let db: Database.Database | null = null;
+let db: any = null;
 
-export function getDatabase(): Database.Database {
+export function isDatabaseAvailable(): boolean {
+    return isAvailable;
+}
+
+export function getDatabase(): any {
+    if (!isAvailable) {
+        console.warn('[Database] SQLite not available. Operations will be skipped.');
+        return null;
+    }
+
     if (!db) {
         db = new Database(DB_PATH);
         db.pragma('journal_mode = WAL'); // Better performance for concurrent reads/writes
@@ -26,7 +49,10 @@ export function getDatabase(): Database.Database {
  * Initialize database schema
  */
 function initializeSchema() {
+    if (!isAvailable) return;
+
     const db = getDatabase();
+    if (!db) return;
 
     // Users table - store user profile information
     db.exec(`
@@ -127,7 +153,11 @@ function initializeSchema() {
 export const UserDB = {
     // Get user profile (assumes single user for now)
     getProfile(): UserProfile | null {
+        if (!isAvailable) return null;
+
         const db = getDatabase();
+        if (!db) return null;
+
         const row = db.prepare('SELECT * FROM users ORDER BY id DESC LIMIT 1').get() as any;
 
         if (!row) return null;
@@ -141,12 +171,21 @@ export const UserDB = {
             skills: row.skills ? JSON.parse(row.skills) : [],
             experience: row.experience ? JSON.parse(row.experience) : [],
             education: row.education ? JSON.parse(row.education) : [],
+            links: [], // Not stored in DB yet
+            projects: [], // Not stored in DB yet
         };
     },
 
     // Create or update user profile
     saveProfile(profile: UserProfile): void {
+        if (!isAvailable) {
+            console.warn('[Database] Cannot save profile - database not available');
+            return;
+        }
+
         const db = getDatabase();
+        if (!db) return;
+
         const existing = this.getProfile();
 
         const data = {
@@ -193,7 +232,10 @@ export const UserDB = {
 export const JobDB = {
     // Save a job to database
     save(job: Job): void {
+        if (!isAvailable) return;
+
         const db = getDatabase();
+        if (!db) return;
 
         db.prepare(`
             INSERT OR REPLACE INTO jobs 
@@ -209,7 +251,10 @@ export const JobDB = {
 
     // Get job by ID
     get(jobId: string): Job | null {
+        if (!isAvailable) return null;
+
         const db = getDatabase();
+        if (!db) return null;
         const row = db.prepare('SELECT * FROM jobs WHERE id = ?').get(jobId) as any;
 
         if (!row) return null;
@@ -232,7 +277,10 @@ export const JobDB = {
 
     // Get all jobs
     getAll(limit: number = 100): Job[] {
+        if (!isAvailable) return [];
+
         const db = getDatabase();
+        if (!db) return [];
         const rows = db.prepare('SELECT * FROM jobs ORDER BY created_at DESC LIMIT ?').all(limit) as any[];
 
         return rows.map(row => ({
@@ -258,7 +306,10 @@ export const JobDB = {
 export const ScrapingHistoryDB = {
     // Start a new scraping run
     start(totalSites: number, triggerType: 'manual' | 'scheduled' = 'manual'): number {
+        if (!isAvailable) return 0;
+
         const db = getDatabase();
+        if (!db) return 0;
 
         const result = db.prepare(`
             INSERT INTO scraping_history (started_at, total_sites, trigger_type)
@@ -276,7 +327,10 @@ export const ScrapingHistoryDB = {
         totalJobsFound: number,
         siteDetails: any[]
     ): void {
+        if (!isAvailable) return;
+
         const db = getDatabase();
+        if (!db) return;
         const startRow = db.prepare('SELECT started_at FROM scraping_history WHERE id = ?').get(runId) as any;
 
         if (!startRow) return;
@@ -298,7 +352,10 @@ export const ScrapingHistoryDB = {
 
     // Get history
     getHistory(limit: number = 10): any[] {
+        if (!isAvailable) return [];
+
         const db = getDatabase();
+        if (!db) return [];
         const rows = db.prepare(`
             SELECT * FROM scraping_history 
             ORDER BY started_at DESC 

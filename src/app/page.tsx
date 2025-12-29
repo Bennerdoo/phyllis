@@ -51,7 +51,7 @@ export default function Home() {
             const res = await fetch('/api/analyze', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ keyword: 'computer science software engineer developer' }),
+                body: JSON.stringify({ keyword: 'computer science, software engineer, developer, fullstack, devops, AI training, Annotation, Data science, Machine Learning' }),
             });
             const data = await res.json();
             if (!data.success) {
@@ -84,7 +84,7 @@ export default function Home() {
                 <div className="flex items-center justify-center gap-3 mb-4">
                     <div className="text-5xl md:text-6xl">🤖</div>
                     <h1 className="text-4xl md:text-6xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-400 via-purple-500 to-pink-500 animate-gradient">
-                        Phyllis
+                        Phyllis AI
                     </h1>
                 </div>
                 <p className="text-gray-400 text-base md:text-lg max-w-2xl mx-auto">
@@ -115,7 +115,7 @@ export default function Home() {
                                     Analyzing Jobs...
                                 </span>
                             ) : (
-                                '🔍 Analyze CS Jobs (20 Sites)'
+                                '🔍 Analyze Tech Jobs (20 Sites)'
                             )}
                         </button>
 
