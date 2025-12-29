@@ -1,9 +1,9 @@
-import cron from 'node-cron';
+import cron, { ScheduledTask } from 'node-cron';
 import { ApplicationService } from './services/applicationService';
 import { SchedulerStatus, SchedulerHistory } from './types';
 
 class Scheduler {
-    private task: cron.ScheduledTask | null = null;
+    private task: ScheduledTask | null = null;
     private isRunning = false;
     private lastRun?: string;
     private history: SchedulerHistory[] = [];
