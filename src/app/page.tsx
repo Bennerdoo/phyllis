@@ -1,152 +1,165 @@
 'use client';
 
-import { useState } from 'react';
-import { Job } from '@/lib/types';
+import { useState, useEffect } from 'react';
+import { JobApplication } from '@/lib/types';
+import StatisticsPanel from '@/components/StatisticsPanel';
+import JobCard from '@/components/JobCard';
+import SchedulerStatusPanel from '@/components/SchedulerStatusPanel';
 
 export default function Home() {
-    const [jobs, setJobs] = useState<Job[]>([]);
+    const [applications, setApplications] = useState<JobApplication[]>([]);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
+    const [isPolling, setIsPolling] = useState(false);
 
-    const handleSearch = async () => {
+    // Poll for application updates every 2 seconds
+    useEffect(() => {
+        const fetchApplications = async () => {
+            try {
+                const res = await fetch('/api/applications');
+                const data = await res.json();
+                if (data.success) {
+                    setApplications(data.applications);
+                }
+            } catch (err) {
+                console.error('Failed to fetch applications:', err);
+            }
+        };
+
+        // Initial fetch
+        fetchApplications();
+
+        // Set up polling
+        const interval = setInterval(fetchApplications, 2000);
+        return () => clearInterval(interval);
+    }, []);
+
+    const handleStartAutoApply = async () => {
         setLoading(true);
         setError('');
+        setIsPolling(true);
         try {
-            const res = await fetch('/api/jobs/search', {
+            const res = await fetch('/api/auto-apply', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ keyword: 'developer' }), // Default for now
+                body: JSON.stringify({ keyword: 'developer' }),
             });
             const data = await res.json();
-            if (data.success) {
-                setJobs(data.jobs);
-            } else {
-                setError(data.error || 'Failed to fetch jobs');
+            if (!data.success) {
+                setError(data.error || 'Failed to start auto-apply');
+                setIsPolling(false);
             }
         } catch (err) {
             setError('An error occurred');
+            setIsPolling(false);
         } finally {
             setLoading(false);
         }
     };
 
-    const handleGenerateResume = async (job: Job) => {
-        // Optimistic UI or toast here
-        alert(`Generating tailored resume for ${job.title}... This might take a few seconds.`);
-
-        try {
-            const res = await fetch('/api/resumes/generate', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ job }),
-            });
-
-            if (!res.ok) throw new Error('Failed to generate PDF');
-
-            const blob = await res.blob();
-            const url = window.URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `Resume-${job.company}.pdf`;
-            document.body.appendChild(a);
-            a.click();
-            window.URL.revokeObjectURL(url);
-        } catch (e) {
-            console.error(e);
-            alert('Error generating resume.');
-        }
-    };
-
-    const handleApply = async (job: Job) => {
-        const confirm = window.confirm(`Send application email for ${job.title} to YOUR email (for review)?`);
-        if (!confirm) return;
-
-        alert(`Applying to ${job.company}... generating AI cover letter and resume...`);
-        try {
-            const res = await fetch('/api/apply', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ job }),
-            });
-            const data = await res.json();
-            if (data.success) {
-                alert('Application Sent! Check your email.');
-            } else {
-                alert('Failed to send application.');
-            }
-        } catch (e) {
-            console.error(e);
-            alert('Error sending application.');
-        }
-    };
-
     return (
-        <main className="min-h-screen bg-gray-900 text-white p-8 font-sans">
-            <header className="mb-12 text-center">
-                <h1 className="text-5xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-purple-600 mb-4">
-                    Phyllis
-                </h1>
-                <p className="text-gray-400 text-lg">Your AI-Powered Job Application Assistant</p>
+        <main className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 text-white p-4 md:p-8 font-sans">
+            {/* Header */}
+            <header className="mb-8 md:mb-12 text-center">
+                <div className="flex items-center justify-center gap-3 mb-4">
+                    <div className="text-5xl md:text-6xl">🤖</div>
+                    <h1 className="text-4xl md:text-6xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-400 via-purple-500 to-pink-500 animate-gradient">
+                        Phyllis
+                    </h1>
+                </div>
+                <p className="text-gray-400 text-base md:text-lg max-w-2xl mx-auto">
+                    Your AI-Powered Automatic Job Application Assistant
+                </p>
+                <p className="text-gray-500 text-sm mt-2">
+                    Find jobs, generate tailored resumes, and apply automatically
+                </p>
             </header>
 
-            <div className="max-w-4xl mx-auto mb-8 text-center">
-                <button
-                    onClick={handleSearch}
-                    disabled={loading}
-                    className="px-8 py-4 bg-blue-600 hover:bg-blue-700 rounded-full font-bold text-lg transition-all transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-blue-500/30"
-                >
-                    {loading ? 'Scouring the Web...' : 'Find Jobs'}
-                </button>
-                {error && <p className="text-red-400 mt-4">{error}</p>}
+            {/* Control Panel */}
+            <div className="max-w-7xl mx-auto mb-8">
+                <div className="bg-gradient-to-br from-gray-800 to-gray-900 rounded-2xl p-6 md:p-8 border border-gray-700 shadow-2xl text-center">
+                    <button
+                        onClick={handleStartAutoApply}
+                        disabled={loading || isPolling}
+                        className="px-8 py-4 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 rounded-full font-bold text-base md:text-lg transition-all transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none shadow-lg shadow-purple-500/50 hover:shadow-purple-500/70"
+                    >
+                        {loading ? (
+                            <span className="flex items-center gap-2 justify-center">
+                                <span className="animate-spin">⚙️</span>
+                                Starting Auto-Apply...
+                            </span>
+                        ) : isPolling ? (
+                            <span className="flex items-center gap-2 justify-center">
+                                <span className="animate-pulse">🔄</span>
+                                Auto-Apply Running...
+                            </span>
+                        ) : (
+                            '🚀 Start Auto-Apply'
+                        )}
+                    </button>
+                    {error && (
+                        <p className="text-red-400 mt-4 bg-red-900/20 border border-red-500/30 rounded-lg p-3">
+                            {error}
+                        </p>
+                    )}
+                    {isPolling && (
+                        <p className="text-green-400 mt-4 text-sm flex items-center justify-center gap-2">
+                            <span className="inline-block w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
+                            Actively searching and applying to jobs...
+                        </p>
+                    )}
+                </div>
             </div>
 
-            <div className="max-w-6xl mx-auto grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-                {jobs.map((job) => (
-                    <div key={job.id} className="bg-gray-800 rounded-xl p-6 border border-gray-700 hover:border-purple-500 transition-colors shadow-xl">
-                        <div className="flex justify-between items-start mb-4">
-                            <div>
-                                <h2 className="text-xl font-bold text-white mb-1 line-clamp-2" title={job.title}>{job.title}</h2>
-                                <p className="text-blue-400 font-medium">{job.company}</p>
+            {/* Scheduler Status */}
+            <div className="max-w-7xl mx-auto mb-8">
+                <SchedulerStatusPanel />
+            </div>
+
+            {/* Main Content */}
+            <div className="max-w-7xl mx-auto">
+                {applications.length === 0 ? (
+                    <div className="text-center text-gray-500 mt-12 bg-gray-800/50 rounded-2xl p-12 border border-gray-700">
+                        <div className="text-6xl mb-4">📭</div>
+                        <p className="text-xl mb-2">No applications yet</p>
+                        <p className="text-sm text-gray-600">Click "Start Auto-Apply" to begin finding and applying to jobs</p>
+                    </div>
+                ) : (
+                    <div className="space-y-8">
+                        {/* Statistics Panel */}
+                        <StatisticsPanel applications={applications} />
+
+                        {/* Job Cards Grid */}
+                        <div>
+                            <h2 className="text-2xl md:text-3xl font-bold mb-6 text-center bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-purple-500">
+                                📋 Applications ({applications.length})
+                            </h2>
+                            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+                                {applications.map((app) => (
+                                    <JobCard key={app.job.id} application={app} />
+                                ))}
                             </div>
-                            <span className="text-xs bg-gray-700 px-2 py-1 rounded text-gray-300">{job.source}</span>
-                        </div>
-
-                        <p className="text-gray-400 text-sm mb-4 flex items-center gap-2">
-                            <span className="inline-block w-2 h-2 rounded-full bg-green-500"></span>
-                            {job.location}
-                        </p>
-
-                        <div className="flex gap-2 mt-auto">
-                            <a
-                                href={job.url}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="flex-1 text-center py-2 bg-gray-700 hover:bg-gray-600 rounded text-sm transition-colors"
-                            >
-                                View
-                            </a>
-                            <button
-                                onClick={() => handleGenerateResume(job)}
-                                className="flex-1 py-2 bg-purple-600 hover:bg-purple-700 rounded text-sm font-bold transition-colors"
-                            >
-                                Download Resume
-                            </button>
-                            <button
-                                onClick={() => handleApply(job)}
-                                className="flex-1 py-2 bg-green-600 hover:bg-green-700 rounded text-sm font-bold transition-colors ml-2"
-                            >
-                                Auto-Apply
-                            </button>
                         </div>
                     </div>
-                ))}
+                )}
             </div>
 
-            {!loading && jobs.length === 0 && (
-                <div className="text-center text-gray-500 mt-12">
-                    <p>No jobs found yet. Click the button to start searching.</p>
-                </div>
-            )}
+            {/* Footer */}
+            <footer className="text-center mt-16 text-gray-600 text-sm">
+                <p>Powered by AI • Updates every 2 seconds</p>
+            </footer>
+
+            <style jsx global>{`
+                @keyframes gradient {
+                    0% { background-position: 0% 50%; }
+                    50% { background-position: 100% 50%; }
+                    100% { background-position: 0% 50%; }
+                }
+                .animate-gradient {
+                    background-size: 200% auto;
+                    animation: gradient 3s ease infinite;
+                }
+            `}</style>
         </main>
     );
 }

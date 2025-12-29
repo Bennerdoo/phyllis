@@ -48,3 +48,38 @@ export interface Project {
     description: string;
     url?: string;
 }
+
+export enum ApplicationStatus {
+    PENDING = 'pending',
+    GENERATING_RESUME = 'generating_resume',
+    RESUME_READY = 'resume_ready',
+    APPLYING = 'applying',
+    APPLIED = 'applied',
+    FAILED = 'failed',
+}
+
+export interface JobApplication {
+    job: Job;
+    status: ApplicationStatus;
+    createdAt: string;
+    updatedAt: string;
+    error?: string;
+    stageTimestamps?: Partial<Record<ApplicationStatus, string>>;
+    appliedAt?: string;
+}
+
+export interface SchedulerStatus {
+    enabled: boolean;
+    lastRun?: string;
+    nextRun?: string;
+    isRunning: boolean;
+    schedule: string;
+}
+
+export interface SchedulerHistory {
+    timestamp: string;
+    success: boolean;
+    jobsProcessed: number;
+    error?: string;
+}
+
