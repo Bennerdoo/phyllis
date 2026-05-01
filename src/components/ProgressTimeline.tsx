@@ -8,17 +8,16 @@ interface ProgressTimelineProps {
 }
 
 const STAGES = [
-    { status: AnalysisStatus.PENDING, label: 'Pending', icon: '⏳' },
-    { status: AnalysisStatus.ANALYZING, label: 'Analyzing', icon: '🔬' },
-    { status: AnalysisStatus.GENERATING_DOCUMENTS, label: 'Documents', icon: '📝' },
-    { status: AnalysisStatus.COMPLETE, label: 'Complete', icon: '✅' },
+    { status: AnalysisStatus.PENDING, label: 'Pending' },
+    { status: AnalysisStatus.ANALYZING, label: 'Analyzing' },
+    { status: AnalysisStatus.GENERATING_DOCUMENTS, label: 'Documents' },
+    { status: AnalysisStatus.COMPLETE, label: 'Complete' },
 ];
 
 export default function ProgressTimeline({ currentStatus, stageTimestamps = {} }: ProgressTimelineProps) {
     const currentStageIndex = STAGES.findIndex(s => s.status === currentStatus);
     const isFailed = currentStatus === AnalysisStatus.FAILED;
 
-    // Format timestamp to show time only
     const formatTime = (timestamp?: string) => {
         if (!timestamp) return '';
         const date = new Date(timestamp);
@@ -27,59 +26,40 @@ export default function ProgressTimeline({ currentStatus, stageTimestamps = {} }
 
     if (isFailed) {
         return (
-            <div className="flex items-center gap-2 p-3 bg-red-900/20 border border-red-500/30 rounded-lg">
-                <span className="text-2xl">❌</span>
-                <div className="flex-1">
-                    <div className="text-red-400 font-bold">Failed</div>
-                    <div className="text-red-300 text-xs">Analysis process encountered an error</div>
-                </div>
+            <div className="flex items-center gap-2 text-xs text-[#dc2626]">
+                <span className="inline-block w-[6px] h-[6px] rounded-full bg-[#dc2626]" />
+                Failed — analysis encountered an error
             </div>
         );
     }
 
     return (
-        <div className="space-y-2">
-            <div className="flex items-center gap-1 overflow-x-auto pb-2">
-                {STAGES.map((stage, index) => {
-                    const isCompleted = index < currentStageIndex;
-                    const isCurrent = index === currentStageIndex;
-                    const timestamp = stageTimestamps?.[stage.status];
+        <div className="flex items-center gap-3 text-xs">
+            {STAGES.map((stage, index) => {
+                const isCompleted = index < currentStageIndex;
+                const isCurrent = index === currentStageIndex;
+                const timestamp = stageTimestamps?.[stage.status];
 
-                    return (
-                        <div key={stage.status} className="flex items-center flex-shrink-0">
-                            <div className="flex flex-col items-center">
-                                <div
-                                    className={`
-                                        w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold
-                                        transition-all duration-300
-                                        ${isCompleted ? 'bg-green-500 text-white scale-100' : ''}
-                                        ${isCurrent ? 'bg-blue-500 text-white animate-pulse scale-110' : ''}
-                                        ${!isCompleted && !isCurrent ? 'bg-gray-700 text-gray-400 scale-90' : ''}
-                                    `}
-                                >
-                                    {stage.icon}
-                                </div>
-                                <div className={`text-xs mt-1 text-center ${isCurrent ? 'text-blue-400 font-bold' : 'text-gray-500'}`}>
-                                    {stage.label}
-                                </div>
-                                {timestamp && (
-                                    <div className="text-xs text-gray-600 mt-0.5">
-                                        {formatTime(timestamp)}
-                                    </div>
-                                )}
-                            </div>
-                            {index < STAGES.length - 1 && (
-                                <div
-                                    className={`
-                                        w-6 h-1 mx-1 rounded transition-all duration-300
-                                        ${isCompleted ? 'bg-green-500' : 'bg-gray-700'}
-                                    `}
-                                />
-                            )}
-                        </div>
-                    );
-                })}
-            </div>
+                return (
+                    <div key={stage.status} className="flex items-center gap-1.5">
+                        <span
+                            className={`inline-block w-[6px] h-[6px] rounded-full ${
+                                isCompleted
+                                    ? 'bg-[#16a34a]'
+                                    : isCurrent
+                                        ? 'bg-[#ca8a04]'
+                                        : 'bg-[#333]'
+                            }`}
+                        />
+                        <span className={isCurrent ? 'text-[#e5e5e5]' : 'text-[#525252]'}>
+                            {stage.label}
+                        </span>
+                        {timestamp && (
+                            <span className="text-[#525252]">{formatTime(timestamp)}</span>
+                        )}
+                    </div>
+                );
+            })}
         </div>
     );
 }

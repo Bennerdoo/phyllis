@@ -7,13 +7,15 @@ import JobCard from '@/components/JobCard';
 import ProgressTracker from '@/components/ProgressTracker';
 import ScrapingHistory from '@/components/ScrapingHistory';
 
+type Tab = 'jobs' | 'history';
+
 export default function Home() {
     const [analyses, setAnalyses] = useState<JobAnalysis[]>([]);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
     const [isAnalyzing, setIsAnalyzing] = useState(false);
     const [statusInfo, setStatusInfo] = useState<any>(null);
-    const [activeTab, setActiveTab] = useState<'jobs' | 'history'>('jobs');
+    const [activeTab, setActiveTab] = useState<Tab>('jobs');
 
     // Poll for analysis updates every 2 seconds
     useEffect(() => {
@@ -77,158 +79,135 @@ export default function Home() {
         }
     };
 
+    const navItems: { label: string; tab: Tab }[] = [
+        { label: 'Job analyses', tab: 'jobs' },
+        { label: 'Scraping history', tab: 'history' },
+    ];
+
     return (
-        <main className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 text-white p-4 md:p-8 font-sans">
-            {/* Header */}
-            <header className="mb-8 md:mb-12 text-center">
-                <div className="flex items-center justify-center gap-3 mb-4">
-                    <div className="text-5xl md:text-6xl">🤖</div>
-                    <h1 className="text-4xl md:text-6xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-400 via-purple-500 to-pink-500 animate-gradient">
-                        Phyllis AI
+        <div className="flex min-h-screen">
+            {/* Sidebar */}
+            <aside className="fixed top-0 left-0 h-screen w-[220px] bg-[#111111] border-r border-[#262626] flex flex-col z-10">
+                <div className="px-5 pt-5 pb-4">
+                    <h1 className="text-[18px] font-semibold text-white tracking-[-0.01em]">
+                        Phyllis
                     </h1>
+                    <p className="text-xs text-[#737373] mt-0.5">Job analysis</p>
                 </div>
-                <p className="text-gray-400 text-base md:text-lg max-w-2xl mx-auto">
-                    Your AI-Powered Job Analysis & Document Generation Assistant
-                </p>
-                <p className="text-gray-500 text-sm mt-2">
-                    Scraping 20 job sites daily • Find CS jobs, analyze requirements, and generate tailored documents
-                </p>
-            </header>
 
-            {/* Control Panel */}
-            <div className="max-w-7xl mx-auto mb-8">
-                <div className="bg-gradient-to-br from-gray-800 to-gray-900 rounded-2xl p-6 md:p-8 border border-gray-700 shadow-2xl text-center">
-                    <div className="flex gap-4 justify-center flex-wrap">
+                <nav className="flex-1 px-3">
+                    {navItems.map((item) => (
                         <button
-                            onClick={handleStartAnalysis}
-                            disabled={loading || isAnalyzing}
-                            className="px-8 py-4 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 rounded-full font-bold text-base md:text-lg transition-all transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none shadow-lg shadow-purple-500/50 hover:shadow-purple-500/70"
+                            key={item.tab}
+                            onClick={() => setActiveTab(item.tab)}
+                            className={`w-full text-left px-3 py-[7px] text-sm rounded transition-colors ${
+                                activeTab === item.tab
+                                    ? 'text-white bg-[#1f1f1f]'
+                                    : 'text-[#737373] hover:text-[#a3a3a3]'
+                            }`}
                         >
-                            {loading ? (
-                                <span className="flex items-center gap-2 justify-center">
-                                    <span className="animate-spin">⚙️</span>
-                                    Starting Analysis...
-                                </span>
-                            ) : isAnalyzing ? (
-                                <span className="flex items-center gap-2 justify-center">
-                                    <span className="animate-pulse">🔄</span>
-                                    Analyzing Jobs...
-                                </span>
-                            ) : (
-                                '🔍 Analyze Tech Jobs (20 Sites)'
-                            )}
+                            {item.label}
                         </button>
+                    ))}
+                </nav>
 
-                        {analyses.length > 0 && (
-                            <button
-                                onClick={handleClearAnalyses}
-                                className="px-6 py-4 bg-gray-700 hover:bg-gray-600 rounded-full font-bold text-base transition-all"
-                            >
-                                🗑️ Clear All
-                            </button>
+                {/* Sidebar footer */}
+                <div className="px-5 py-4 border-t border-[#262626]">
+                    <p className="text-xs text-[#525252]">20 sites configured</p>
+                </div>
+            </aside>
+
+            {/* Main content */}
+            <main className="ml-[220px] flex-1 min-h-screen">
+                {/* Top bar */}
+                <header className="sticky top-0 z-10 bg-[#0f0f0f]/95 border-b border-[#262626] px-8 py-4 flex items-center justify-between">
+                    <div className="flex items-center gap-4">
+                        <h2 className="text-sm font-semibold text-[#e5e5e5]">
+                            {activeTab === 'jobs' ? 'Job analyses' : 'Scraping history'}
+                        </h2>
+                        {analyses.length > 0 && activeTab === 'jobs' && (
+                            <span className="text-xs text-[#525252]">
+                                {analyses.length} results
+                            </span>
                         )}
                     </div>
 
-                    {error && (
-                        <p className="text-red-400 mt-4 bg-red-900/20 border border-red-500/30 rounded-lg p-3">
-                            {error}
-                        </p>
-                    )}
+                    <div className="flex items-center gap-3">
+                        {analyses.length > 0 && (
+                            <button
+                                onClick={handleClearAnalyses}
+                                className="px-3 py-[6px] text-sm text-[#e5e5e5] border border-[#333] rounded hover:border-[#555] transition-colors"
+                            >
+                                Clear
+                            </button>
+                        )}
+                        <button
+                            onClick={handleStartAnalysis}
+                            disabled={loading || isAnalyzing}
+                            className="px-4 py-[6px] bg-white text-black text-sm font-semibold rounded hover:bg-[#e5e5e5] transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                        >
+                            {loading
+                                ? 'Starting...'
+                                : isAnalyzing
+                                    ? 'Analyzing...'
+                                    : 'Run analysis'}
+                        </button>
+                    </div>
+                </header>
 
-                    {isAnalyzing && statusInfo && (
-                        <div className="mt-4 text-sm">
-                            <p className="text-green-400 flex items-center justify-center gap-2 mb-2">
-                                <span className="inline-block w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
-                                Actively analyzing jobs and generating documents...
-                            </p>
-                            <div className="flex gap-4 justify-center text-gray-400">
-                                <span>⏳ Pending: {statusInfo.pending}</span>
-                                <span>🔬 Analyzing: {statusInfo.analyzing}</span>
-                                <span>📝 Generating: {statusInfo.generatingDocs}</span>
-                                <span>✅ Complete: {statusInfo.complete}</span>
-                                {statusInfo.failed > 0 && <span className="text-red-400">❌ Failed: {statusInfo.failed}</span>}
+                {/* Status bar (only during active analysis) */}
+                {isAnalyzing && statusInfo && (
+                    <div className="border-b border-[#262626] px-8 py-3 flex items-center gap-6 text-sm">
+                        <span className="flex items-center gap-2 text-[#e5e5e5]">
+                            <span className="inline-block w-[6px] h-[6px] rounded-full bg-[#16a34a] animate-pulse" />
+                            Running
+                        </span>
+                        <span className="text-[#737373]">Pending {statusInfo.pending}</span>
+                        <span className="text-[#737373]">Analyzing {statusInfo.analyzing}</span>
+                        <span className="text-[#737373]">Generating {statusInfo.generatingDocs}</span>
+                        <span className="text-[#737373]">Complete {statusInfo.complete}</span>
+                        {statusInfo.failed > 0 && (
+                            <span className="text-[#dc2626]">Failed {statusInfo.failed}</span>
+                        )}
+                    </div>
+                )}
+
+                {/* Error */}
+                {error && (
+                    <div className="mx-8 mt-4 px-4 py-3 border border-[#dc2626]/30 rounded text-sm text-[#dc2626]">
+                        {error}
+                    </div>
+                )}
+
+                {/* Content area */}
+                <div className="px-8 py-6">
+                    {/* Progress tracker during active scraping */}
+                    <ProgressTracker />
+
+                    {activeTab === 'jobs' ? (
+                        analyses.length === 0 ? (
+                            <div className="mt-16 text-center">
+                                <p className="text-[#737373] text-sm">No analyses yet</p>
+                                <p className="text-[#525252] text-xs mt-1">
+                                    Run an analysis to scrape job listings from 20 sites
+                                </p>
                             </div>
-                        </div>
-                    )}
-                </div>
-            </div>
+                        ) : (
+                            <div className="space-y-6">
+                                <StatisticsPanel analyses={analyses} />
 
-            {/* Progress Tracker - Shows during active scraping */}
-            <div className="max-w-7xl mx-auto">
-                <ProgressTracker />
-            </div>
-
-            {/* Main Content */}
-            <div className="max-w-7xl mx-auto">
-                {/* Tabs */}
-                <div className="flex gap-4 mb-6 border-b border-gray-700">
-                    <button
-                        onClick={() => setActiveTab('jobs')}
-                        className={`px-6 py-3 font-semibold transition-all ${activeTab === 'jobs'
-                                ? 'text-blue-400 border-b-2 border-blue-400'
-                                : 'text-gray-400 hover:text-gray-300'
-                            }`}
-                    >
-                        💼 Job Analyses ({analyses.length})
-                    </button>
-                    <button
-                        onClick={() => setActiveTab('history')}
-                        className={`px-6 py-3 font-semibold transition-all ${activeTab === 'history'
-                                ? 'text-blue-400 border-b-2 border-blue-400'
-                                : 'text-gray-400 hover:text-gray-300'
-                            }`}
-                    >
-                        📚 Scraping History
-                    </button>
-                </div>
-
-                {/* Tab Content */}
-                {activeTab === 'jobs' ? (
-                    analyses.length === 0 ? (
-                        <div className="text-center text-gray-500 mt-12 bg-gray-800/50 rounded-2xl p-12 border border-gray-700">
-                            <div className="text-6xl mb-4">📭</div>
-                            <p className="text-xl mb-2">No job analyses yet</p>
-                            <p className="text-sm text-gray-600">Click "Analyze CS Jobs" to find computer science positions from 20 job sites and generate documents</p>
-                        </div>
-                    ) : (
-                        <div className="space-y-8">
-                            {/* Statistics Panel */}
-                            <StatisticsPanel analyses={analyses} />
-
-                            {/* Job Cards Grid */}
-                            <div>
-                                <h2 className="text-2xl md:text-3xl font-bold mb-6 text-center bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-purple-500">
-                                    💼 Job Analyses ({analyses.length})
-                                </h2>
-                                <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+                                <div className="space-y-0">
                                     {analyses.map((analysis) => (
                                         <JobCard key={analysis.job.id} analysis={analysis} />
                                     ))}
                                 </div>
                             </div>
-                        </div>
-                    )
-                ) : (
-                    <ScrapingHistory />
-                )}
-            </div>
-
-            {/* Footer */}
-            <footer className="text-center mt-16 text-gray-600 text-sm">
-                <p>Powered by Gemini AI • Updates every 2 seconds • Scraping 20 sites daily</p>
-            </footer>
-
-            <style jsx global>{`
-                @keyframes gradient {
-                    0% { background-position: 0% 50%; }
-                    50% { background-position: 100% 50%; }
-                    100% { background-position: 0% 50%; }
-                }
-                .animate-gradient {
-                    background-size: 200% auto;
-                    animation: gradient 3s ease infinite;
-                }
-            `}</style>
-        </main>
+                        )
+                    ) : (
+                        <ScrapingHistory />
+                    )}
+                </div>
+            </main>
+        </div>
     );
 }

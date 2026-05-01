@@ -21,7 +21,7 @@ export default function SchedulerStatusPanel() {
         };
 
         fetchStatus();
-        const interval = setInterval(fetchStatus, 10000); // Update every 10 seconds
+        const interval = setInterval(fetchStatus, 10000);
         return () => clearInterval(interval);
     }, []);
 
@@ -41,7 +41,7 @@ export default function SchedulerStatusPanel() {
     };
 
     if (!status || !status.enabled) {
-        return null; // Don't show if scheduler is disabled
+        return null;
     }
 
     const formatTime = (isoString?: string) => {
@@ -56,45 +56,40 @@ export default function SchedulerStatusPanel() {
     };
 
     return (
-        <div className="bg-gradient-to-br from-indigo-900/30 to-purple-900/30 rounded-2xl p-6 border border-indigo-500/30 shadow-xl">
-            <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-bold text-indigo-300 flex items-center gap-2">
-                    <span>🤖</span>
-                    Automated Scheduler
+        <div className="border border-[#262626] rounded bg-[#171717] mb-6">
+            <div className="flex items-center justify-between px-4 py-3 border-b border-[#262626]">
+                <div className="flex items-center gap-2">
+                    <span className="text-sm font-semibold text-[#e5e5e5]">Scheduler</span>
                     {status.isRunning && (
-                        <span className="ml-2 inline-block w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
+                        <span className="inline-block w-[6px] h-[6px] rounded-full bg-[#16a34a] animate-pulse" />
                     )}
-                </h3>
-                <span className="text-xs px-3 py-1 rounded-full bg-green-500/20 text-green-400 border border-green-500/30">
-                    Active
-                </span>
+                    <span className="bg-[#1f1f1f] text-[#a3a3a3] text-xs px-2 py-0.5 rounded">
+                        Active
+                    </span>
+                </div>
+                <button
+                    onClick={handleManualTrigger}
+                    disabled={triggering || status.isRunning}
+                    className="px-3 py-[5px] text-xs text-[#e5e5e5] border border-[#333] rounded hover:border-[#555] transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                    {triggering ? 'Triggering...' : status.isRunning ? 'Running...' : 'Run now'}
+                </button>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-                <div className="bg-gray-800/50 rounded-lg p-3">
-                    <div className="text-xs text-gray-500 mb-1">Schedule</div>
-                    <div className="text-sm text-white font-mono">{status.schedule}</div>
-                    <div className="text-xs text-gray-600 mt-1">Daily at 9:00 AM</div>
+            <div className="grid grid-cols-3 gap-0">
+                <div className="px-4 py-3 border-r border-[#262626]">
+                    <p className="text-xs text-[#525252] mb-0.5">Schedule</p>
+                    <p className="text-sm text-[#e5e5e5] font-mono">{status.schedule}</p>
                 </div>
-
-                <div className="bg-gray-800/50 rounded-lg p-3">
-                    <div className="text-xs text-gray-500 mb-1">Last Run</div>
-                    <div className="text-sm text-white">{formatTime(status.lastRun)}</div>
+                <div className="px-4 py-3 border-r border-[#262626]">
+                    <p className="text-xs text-[#525252] mb-0.5">Last run</p>
+                    <p className="text-sm text-[#e5e5e5]">{formatTime(status.lastRun)}</p>
                 </div>
-
-                <div className="bg-gray-800/50 rounded-lg p-3">
-                    <div className="text-xs text-gray-500 mb-1">Next Run</div>
-                    <div className="text-sm text-white">{formatTime(status.nextRun)}</div>
+                <div className="px-4 py-3">
+                    <p className="text-xs text-[#525252] mb-0.5">Next run</p>
+                    <p className="text-sm text-[#e5e5e5]">{formatTime(status.nextRun)}</p>
                 </div>
             </div>
-
-            <button
-                onClick={handleManualTrigger}
-                disabled={triggering || status.isRunning}
-                className="w-full px-4 py-2 bg-indigo-600 hover:bg-indigo-500 rounded-lg text-sm font-semibold transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-                {triggering ? '⚙️ Triggering...' : status.isRunning ? '⏳ Running...' : '▶️ Run Now (Manual Trigger)'}
-            </button>
         </div>
     );
 }
