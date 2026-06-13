@@ -4,20 +4,25 @@ export async function scrapeJobContent(url: string) {
     let browser;
     try {
         browser = await puppeteer.launch({
-            headless: true, // "new" is deprecated, true is the standard now
+            headless: true,
             args: ['--no-sandbox', '--disable-setuid-sandbox'],
         });
         const page = await browser.newPage();
 
         // Set a realistic User-Agent to avoid immediate blocking
-        await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36');
+        await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
 
-        await page.goto(url, { waitUntil: 'networkidle2', timeout: 30000 });
+        try {
+            await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 15000 });
+            // Wait slightly for dynamic JS rendering
+            await new Promise(resolve => setTimeout(resolve, 2000));
+        } catch (gotoError) {
+            console.warn(`[Scraper] Navigation to ${url} timed out or failed, attempting to read current content anyway:`, gotoError);
+        }
 
         const content = await page.evaluate(() => {
-            // Simple extraction strategy: get the main body text
-            // We can refine this later to target specific selectors if we know the site
-            return document.body.innerText;
+            // Get clean body text
+            return document.body ? document.body.innerText : '';
         });
 
         return content;

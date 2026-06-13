@@ -1,6 +1,144 @@
 import { Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType } from 'docx';
-import { generateText } from '../gemini';
+import { generateText, generateStructuredJSON } from '../gemini';
 import { Job, UserProfile, DocumentType, GeneratedDocument, JobRequirements } from '../types';
+import { scrapeJobContent } from '../scraper';
+import { Schema, Type } from '@google/generative-ai';
+
+// ─── AI SCHEMAS ──────────────────────────────────────────────
+
+const jobRequirementsSchema: Schema = {
+    type: Type.OBJECT,
+    properties: {
+        technicalSkills: {
+            type: Type.ARRAY,
+            items: { type: Type.STRING },
+            description: "Technical skills, languages, frameworks, or tools required"
+        },
+        experienceLevel: {
+            type: Type.STRING,
+            description: "Required experience level",
+            enum: ["Entry Level", "Junior", "Mid-Level", "Senior", "Lead", "Executive", "Not Specified"]
+        },
+        yearsOfExperience: {
+            type: Type.STRING,
+            description: "Years of experience required, or null if unspecified"
+        },
+        education: {
+            type: Type.ARRAY,
+            items: { type: Type.STRING },
+            description: "Education or degrees requested"
+        },
+        certifications: {
+            type: Type.ARRAY,
+            items: { type: Type.STRING },
+            description: "Certifications requested"
+        },
+        softSkills: {
+            type: Type.ARRAY,
+            items: { type: Type.STRING },
+            description: "Soft skills requested"
+        },
+        responsibilities: {
+            type: Type.ARRAY,
+            items: { type: Type.STRING },
+            description: "Key responsibilities of the role"
+        }
+    },
+    required: ["technicalSkills", "experienceLevel", "education", "softSkills", "responsibilities"]
+};
+
+const documentsSchema: Schema = {
+    type: Type.ARRAY,
+    items: {
+        type: Type.STRING,
+        enum: ["resume", "cv", "cover_letter"]
+    },
+    description: "What documents are required to apply"
+};
+
+const resumeContentSchema: Schema = {
+    type: Type.OBJECT,
+    properties: {
+        summary: { type: Type.STRING, description: "Tailored professional summary (2-3 sentences)" },
+        skills: { 
+            type: Type.ARRAY, 
+            items: { type: Type.STRING },
+            description: "List of relevant skills from candidate's profile, ordered by relevance to the job" 
+        },
+        experience: {
+            type: Type.ARRAY,
+            items: {
+                type: Type.OBJECT,
+                properties: {
+                    company: { type: Type.STRING },
+                    role: { type: Type.STRING },
+                    startDate: { type: Type.STRING },
+                    endDate: { type: Type.STRING },
+                    description: { type: Type.STRING, description: "Tailored bullet points highlighting relevant achievements" }
+                },
+                required: ["company", "role", "startDate", "endDate", "description"]
+            }
+        },
+        projects: {
+            type: Type.ARRAY,
+            items: {
+                type: Type.OBJECT,
+                properties: {
+                    name: { type: Type.STRING },
+                    description: { type: Type.STRING }
+                },
+                required: ["name", "description"]
+            }
+        }
+    },
+    required: ["summary", "skills", "experience", "projects"]
+};
+
+const cvContentSchema: Schema = {
+    type: Type.OBJECT,
+    properties: {
+        summary: { type: Type.STRING, description: "Comprehensive tailored summary (3-4 sentences)" },
+        skills: { type: Type.ARRAY, items: { type: Type.STRING } },
+        experience: {
+            type: Type.ARRAY,
+            items: {
+                type: Type.OBJECT,
+                properties: {
+                    company: { type: Type.STRING },
+                    role: { type: Type.STRING },
+                    startDate: { type: Type.STRING },
+                    endDate: { type: Type.STRING },
+                    description: { type: Type.STRING }
+                },
+                required: ["company", "role", "startDate", "endDate", "description"]
+            }
+        },
+        projects: {
+            type: Type.ARRAY,
+            items: {
+                type: Type.OBJECT,
+                properties: {
+                    name: { type: Type.STRING },
+                    description: { type: Type.STRING }
+                },
+                required: ["name", "description"]
+            }
+        }
+    },
+    required: ["summary", "skills", "experience", "projects"]
+};
+
+const coverLetterContentSchema: Schema = {
+    type: Type.OBJECT,
+    properties: {
+        paragraphs: {
+            type: Type.ARRAY,
+            items: { type: Type.STRING },
+            description: "3-4 paragraphs of the cover letter body"
+        }
+    },
+    required: ["paragraphs"]
+};
 
 /**
  * Document Generation Service
@@ -11,36 +149,34 @@ import { Job, UserProfile, DocumentType, GeneratedDocument, JobRequirements } fr
 export class DocumentService {
     /**
      * Analyze job requirements using Gemini AI
+     * Fetches details from job URL if available for richer context
      */
     static async analyzeJobRequirements(job: Job): Promise<JobRequirements> {
-        const prompt = `Analyze the following job posting and extract detailed requirements:
+        // Fetch detailed page if URL is present and not yet fetched
+        if (job.url && job.url.startsWith('http') && job.description.length < 1500) {
+            try {
+                console.log(`   🌐 [DocumentService] Fetching job details from URL: ${job.url}`);
+                const details = await scrapeJobContent(job.url);
+                if (details && details.trim().length > 150) {
+                    job.description = details;
+                }
+            } catch (err) {
+                console.warn(`   ⚠️ [DocumentService] Failed to fetch job detail page:`, err);
+            }
+        }
+
+        const systemInstruction = "You are an expert technical recruiter and job analyst. Analyze job descriptions and extract precise, factual requirements.";
+        const prompt = `Analyze the following job description and extract detailed requirements:
 
 Job Title: ${job.title}
 Company: ${job.company}
-Description: ${job.description}
-
-Extract and return a JSON object with:
-- technicalSkills: array of technical skills required (programming languages, frameworks, tools)
-- experienceLevel: one of "Entry Level", "Mid-Level", "Senior", "Lead", "Executive"
-- yearsOfExperience: string describing years required (e.g., "3-5 years", "5+ years")
-- education: array of education requirements
-- certifications: array of certifications if mentioned
-- softSkills: array of soft skills required
-- responsibilities: array of main responsibilities
-
-Return ONLY valid JSON, no markdown formatting.`;
-
-        const response = await generateText(prompt);
+Description:
+${job.description}`;
 
         try {
-            let jsonStr = response.trim();
-            if (jsonStr.startsWith('```')) {
-                jsonStr = jsonStr.replace(/```json?\n?/g, '').replace(/```\n?$/g, '');
-            }
-            return JSON.parse(jsonStr);
+            return await generateStructuredJSON(prompt, jobRequirementsSchema, systemInstruction, 0.1);
         } catch (error) {
-            console.error('Failed to parse job requirements:', error);
-            // Return default structure
+            console.error('Failed to analyze job requirements with structured AI:', error);
             return {
                 technicalSkills: [],
                 experienceLevel: 'Not Specified',
@@ -55,29 +191,19 @@ Return ONLY valid JSON, no markdown formatting.`;
      * Detect what documents are needed for the job
      */
     static async detectRequiredDocuments(job: Job): Promise<DocumentType[]> {
-        const prompt = `Based on this job posting, determine what documents are typically required:
+        const systemInstruction = "Determine which documents are typically required based on the job details provided. Most jobs require a resume at minimum.";
+        const prompt = `Identify required application documents (resume, cv, cover_letter) from the job details below:
 
 Job Title: ${job.title}
 Company: ${job.company}
-Description: ${job.description}
-
-Return a JSON array of document types needed. Choose from: "resume", "cv", "cover_letter"
-Most jobs need at least a resume. CV is common for academic/research/international positions. Cover letter varies.
-
-Return ONLY a JSON array like: ["resume", "cover_letter"]`;
-
-        const response = await generateText(prompt);
+Description:
+${job.description}`;
 
         try {
-            let jsonStr = response.trim();
-            if (jsonStr.startsWith('```')) {
-                jsonStr = jsonStr.replace(/```json?\n?/g, '').replace(/```\n?$/g, '');
-            }
-            const docs = JSON.parse(jsonStr);
+            const docs = await generateStructuredJSON(prompt, documentsSchema, systemInstruction, 0.1);
             return docs.map((d: string) => d.toLowerCase() as DocumentType);
         } catch (error) {
             console.error('Failed to detect required documents:', error);
-            // Default to resume and cover letter
             return [DocumentType.RESUME, DocumentType.COVER_LETTER];
         }
     }
@@ -330,86 +456,77 @@ Return ONLY a JSON array like: ["resume", "cover_letter"]`;
      * Generate resume content using AI
      */
     private static async generateResumeContent(profile: UserProfile, job: Job) {
-        const prompt = `Generate a tailored resume content for this job application:
+        const systemInstruction = `You are an expert Resume Writer and ATS Optimizer. 
+CRITICAL RULE: Do NOT invent or fabricate any job roles, companies, projects, dates, or skills. 
+Use only the actual work history, projects, and skills present in the candidate profile. 
+You may rephrase, prioritize, and emphasize the candidate's existing achievements to highlight skills relevant to the job, but everything must remain 100% factual.`;
+
+        const prompt = `Generate tailored resume content based on this candidate profile and job description:
 
 Job: ${job.title} at ${job.company}
-Job Description: ${job.description}
+Job Description:
+${job.description}
 
 Candidate Profile:
-${JSON.stringify(profile, null, 2)}
+${JSON.stringify(profile, null, 2)}`;
 
-Return JSON with:
-- summary: tailored professional summary (2-3 sentences)
-- skills: array of relevant skills from candidate's profile, ordered by relevance to job
-- experience: array of experience objects with company, role, startDate, endDate, description (tailored to highlight relevant achievements)
-- projects: array of relevant projects
-
-Focus on computer science and tech skills. Emphasize achievements relevant to the job requirements.
-Return ONLY valid JSON.`;
-
-        const response = await generateText(prompt);
-        let jsonStr = response.trim();
-        if (jsonStr.startsWith('```')) {
-            jsonStr = jsonStr.replace(/```json?\n?/g, '').replace(/```\n?$/g, '');
+        try {
+            return await generateStructuredJSON(prompt, resumeContentSchema, systemInstruction, 0.7);
+        } catch (error) {
+            console.error("Failed to generate tailored resume content with structured AI:", error);
+            throw error;
         }
-        return JSON.parse(jsonStr);
     }
 
     /**
      * Generate CV content using AI (more detailed than resume)
      */
     private static async generateCVContent(profile: UserProfile, job: Job) {
+        const systemInstruction = `You are an expert CV Writer and Academic Recruiter. 
+CRITICAL RULE: Do NOT invent or fabricate any job roles, companies, projects, education details, dates, or skills. 
+Use only the actual history and details present in the candidate profile. 
+You may rephrase and optimize existing achievements to align with the job requirements, but everything must remain 100% factual.`;
+
         const prompt = `Generate a comprehensive CV content for this position:
 
 Job: ${job.title} at ${job.company}
-Job Description: ${job.description}
+Job Description:
+${job.description}
 
 Candidate Profile:
-${JSON.stringify(profile, null, 2)}
+${JSON.stringify(profile, null, 2)}`;
 
-Return JSON with:
-- summary: comprehensive professional summary (3-4 sentences)
-- skills: complete array of all technical skills
-- experience: detailed experience array with full descriptions
-- projects: all relevant projects with technical details
-
-CVs are more comprehensive than resumes. Include all relevant details.
-Return ONLY valid JSON.`;
-
-        const response = await generateText(prompt);
-        let jsonStr = response.trim();
-        if (jsonStr.startsWith('```')) {
-            jsonStr = jsonStr.replace(/```json?\n?/g, '').replace(/```\n?$/g, '');
+        try {
+            return await generateStructuredJSON(prompt, cvContentSchema, systemInstruction, 0.7);
+        } catch (error) {
+            console.error("Failed to generate tailored CV content with structured AI:", error);
+            throw error;
         }
-        return JSON.parse(jsonStr);
     }
 
     /**
      * Generate cover letter content using AI
      */
     private static async generateCoverLetterContent(profile: UserProfile, job: Job) {
+        const systemInstruction = `You are a professional cover letter writer. Write an enthusiastic, professional cover letter body based on the candidate's profile and the job posting. Do NOT invent new qualifications. Use 3 to 4 paragraphs.`;
+
         const prompt = `Write a professional cover letter for this job application:
 
 Job: ${job.title} at ${job.company}
 Company: ${job.company}
-Job Description: ${job.description}
+Job Description:
+${job.description}
 
-Candidate: ${profile.name}
+Candidate Name: ${profile.name}
 Summary: ${profile.summary}
-Key Skills: ${profile.skills.slice(0, 5).join(', ')}
+Key Skills: ${profile.skills.slice(0, 5).join(', ')}`;
 
-Return JSON with:
-- paragraphs: array of 3-4 paragraph strings for the cover letter body
-
-Make it enthusiastic but professional. Highlight relevant skills and experience.
-Return ONLY valid JSON.`;
-
-        const response = await generateText(prompt);
-        let jsonStr = response.trim();
-        if (jsonStr.startsWith('```')) {
-            jsonStr = jsonStr.replace(/```json?\n?/g, '').replace(/```\n?$/g, '');
+        try {
+            return await generateStructuredJSON(prompt, coverLetterContentSchema, systemInstruction, 0.7);
+        } catch (error) {
+            console.error("Failed to generate cover letter content with structured AI:", error);
+            throw error;
         }
-        return JSON.parse(jsonStr);
     }
 
     /**

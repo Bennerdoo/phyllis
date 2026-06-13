@@ -3,6 +3,7 @@ import { JobService } from './jobService';
 import { DocumentService } from './documentService';
 import { analysisStorage } from '../storage';
 import { dummyProfile } from '../dummyProfile';
+import { JobDB } from '../database';
 
 /**
  * Analysis Service - Handles job analysis and document generation
@@ -55,10 +56,17 @@ export class AnalysisService {
             });
             console.log(`   🔬 Analyzing job requirements...`);
 
-            // If requirements weren't extracted during scraping, analyze now
-            if (!job.requirements || job.requirements.technicalSkills.length === 0) {
+            // If requirements weren't extracted during scraping, or description is short, analyze now
+            if (!job.requirements || job.requirements.technicalSkills.length === 0 || job.description.length < 1500) {
                 console.log(`   🤖 Using AI to extract detailed requirements...`);
                 job.requirements = await DocumentService.analyzeJobRequirements(job);
+                
+                // Save updated detailed description and requirements to database
+                try {
+                    JobDB.save(job);
+                } catch (dbError) {
+                    console.warn(`   ⚠️ Failed to save updated job details to database:`, dbError);
+                }
             }
 
             // If documents needed weren't detected during scraping, detect now
