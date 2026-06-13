@@ -2,45 +2,46 @@ import { Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType } fro
 import { generateText, generateStructuredJSON } from '../gemini';
 import { Job, UserProfile, DocumentType, GeneratedDocument, JobRequirements } from '../types';
 import { scrapeJobContent } from '../scraper';
-import { Schema, Type } from '@google/generative-ai';
+import { Schema, SchemaType } from '@google/generative-ai';
 
 // ─── AI SCHEMAS ──────────────────────────────────────────────
 
 const jobRequirementsSchema: Schema = {
-    type: Type.OBJECT,
+    type: SchemaType.OBJECT,
     properties: {
         technicalSkills: {
-            type: Type.ARRAY,
-            items: { type: Type.STRING },
+            type: SchemaType.ARRAY,
+            items: { type: SchemaType.STRING },
             description: "Technical skills, languages, frameworks, or tools required"
         },
         experienceLevel: {
-            type: Type.STRING,
+            type: SchemaType.STRING,
             description: "Required experience level",
+            format: "enum",
             enum: ["Entry Level", "Junior", "Mid-Level", "Senior", "Lead", "Executive", "Not Specified"]
         },
         yearsOfExperience: {
-            type: Type.STRING,
+            type: SchemaType.STRING,
             description: "Years of experience required, or null if unspecified"
         },
         education: {
-            type: Type.ARRAY,
-            items: { type: Type.STRING },
+            type: SchemaType.ARRAY,
+            items: { type: SchemaType.STRING },
             description: "Education or degrees requested"
         },
         certifications: {
-            type: Type.ARRAY,
-            items: { type: Type.STRING },
+            type: SchemaType.ARRAY,
+            items: { type: SchemaType.STRING },
             description: "Certifications requested"
         },
         softSkills: {
-            type: Type.ARRAY,
-            items: { type: Type.STRING },
+            type: SchemaType.ARRAY,
+            items: { type: SchemaType.STRING },
             description: "Soft skills requested"
         },
         responsibilities: {
-            type: Type.ARRAY,
-            items: { type: Type.STRING },
+            type: SchemaType.ARRAY,
+            items: { type: SchemaType.STRING },
             description: "Key responsibilities of the role"
         }
     },
@@ -48,44 +49,45 @@ const jobRequirementsSchema: Schema = {
 };
 
 const documentsSchema: Schema = {
-    type: Type.ARRAY,
+    type: SchemaType.ARRAY,
     items: {
-        type: Type.STRING,
+        type: SchemaType.STRING,
+        format: "enum",
         enum: ["resume", "cv", "cover_letter"]
     },
     description: "What documents are required to apply"
 };
 
 const resumeContentSchema: Schema = {
-    type: Type.OBJECT,
+    type: SchemaType.OBJECT,
     properties: {
-        summary: { type: Type.STRING, description: "Tailored professional summary (2-3 sentences)" },
+        summary: { type: SchemaType.STRING, description: "Tailored professional summary (2-3 sentences)" },
         skills: { 
-            type: Type.ARRAY, 
-            items: { type: Type.STRING },
+            type: SchemaType.ARRAY, 
+            items: { type: SchemaType.STRING },
             description: "List of relevant skills from candidate's profile, ordered by relevance to the job" 
         },
         experience: {
-            type: Type.ARRAY,
+            type: SchemaType.ARRAY,
             items: {
-                type: Type.OBJECT,
+                type: SchemaType.OBJECT,
                 properties: {
-                    company: { type: Type.STRING },
-                    role: { type: Type.STRING },
-                    startDate: { type: Type.STRING },
-                    endDate: { type: Type.STRING },
-                    description: { type: Type.STRING, description: "Tailored bullet points highlighting relevant achievements" }
+                    company: { type: SchemaType.STRING },
+                    role: { type: SchemaType.STRING },
+                    startDate: { type: SchemaType.STRING },
+                    endDate: { type: SchemaType.STRING },
+                    description: { type: SchemaType.STRING, description: "Tailored bullet points highlighting relevant achievements" }
                 },
                 required: ["company", "role", "startDate", "endDate", "description"]
             }
         },
         projects: {
-            type: Type.ARRAY,
+            type: SchemaType.ARRAY,
             items: {
-                type: Type.OBJECT,
+                type: SchemaType.OBJECT,
                 properties: {
-                    name: { type: Type.STRING },
-                    description: { type: Type.STRING }
+                    name: { type: SchemaType.STRING },
+                    description: { type: SchemaType.STRING }
                 },
                 required: ["name", "description"]
             }
@@ -95,31 +97,31 @@ const resumeContentSchema: Schema = {
 };
 
 const cvContentSchema: Schema = {
-    type: Type.OBJECT,
+    type: SchemaType.OBJECT,
     properties: {
-        summary: { type: Type.STRING, description: "Comprehensive tailored summary (3-4 sentences)" },
-        skills: { type: Type.ARRAY, items: { type: Type.STRING } },
+        summary: { type: SchemaType.STRING, description: "Comprehensive tailored summary (3-4 sentences)" },
+        skills: { type: SchemaType.ARRAY, items: { type: SchemaType.STRING } },
         experience: {
-            type: Type.ARRAY,
+            type: SchemaType.ARRAY,
             items: {
-                type: Type.OBJECT,
+                type: SchemaType.OBJECT,
                 properties: {
-                    company: { type: Type.STRING },
-                    role: { type: Type.STRING },
-                    startDate: { type: Type.STRING },
-                    endDate: { type: Type.STRING },
-                    description: { type: Type.STRING }
+                    company: { type: SchemaType.STRING },
+                    role: { type: SchemaType.STRING },
+                    startDate: { type: SchemaType.STRING },
+                    endDate: { type: SchemaType.STRING },
+                    description: { type: SchemaType.STRING }
                 },
                 required: ["company", "role", "startDate", "endDate", "description"]
             }
         },
         projects: {
-            type: Type.ARRAY,
+            type: SchemaType.ARRAY,
             items: {
-                type: Type.OBJECT,
+                type: SchemaType.OBJECT,
                 properties: {
-                    name: { type: Type.STRING },
-                    description: { type: Type.STRING }
+                    name: { type: SchemaType.STRING },
+                    description: { type: SchemaType.STRING }
                 },
                 required: ["name", "description"]
             }
@@ -129,11 +131,11 @@ const cvContentSchema: Schema = {
 };
 
 const coverLetterContentSchema: Schema = {
-    type: Type.OBJECT,
+    type: SchemaType.OBJECT,
     properties: {
         paragraphs: {
-            type: Type.ARRAY,
-            items: { type: Type.STRING },
+            type: SchemaType.ARRAY,
+            items: { type: SchemaType.STRING },
             description: "3-4 paragraphs of the cover letter body"
         }
     },

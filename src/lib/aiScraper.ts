@@ -1,7 +1,7 @@
 import puppeteer from 'puppeteer';
 import { generateStructuredJSON } from './gemini';
 import { Job, JobRequirements, DocumentType } from './types';
-import { Schema, Type } from '@google/generative-ai';
+import { Schema, SchemaType } from '@google/generative-ai';
 
 /**
  * Utility to clean HTML to reduce size and remove noise
@@ -31,60 +31,62 @@ export function cleanHtmlForAI(html: string): string {
 
 // Define strict JSON Schema for extracting jobs list
 const jobsListSchema: Schema = {
-    type: Type.ARRAY,
+    type: SchemaType.ARRAY,
     description: "List of tech job postings extracted from the HTML",
     items: {
-        type: Type.OBJECT,
+        type: SchemaType.OBJECT,
         properties: {
-            title: { type: Type.STRING, description: "Job title" },
-            company: { type: Type.STRING, description: "Company name" },
-            location: { type: Type.STRING, description: "Job location, default to 'Remote' if unspecified" },
-            url: { type: Type.STRING, description: "Full URL to the job posting. Construct using the base URL if relative." },
-            description: { type: Type.STRING, description: "Brief job description or snippet under 1000 characters" },
+            title: { type: SchemaType.STRING, description: "Job title" },
+            company: { type: SchemaType.STRING, description: "Company name" },
+            location: { type: SchemaType.STRING, description: "Job location, default to 'Remote' if unspecified" },
+            url: { type: SchemaType.STRING, description: "Full URL to the job posting. Construct using the base URL if relative." },
+            description: { type: SchemaType.STRING, description: "Brief job description or snippet under 1000 characters" },
             requirements: {
-                type: Type.OBJECT,
+                type: SchemaType.OBJECT,
                 properties: {
                     technicalSkills: {
-                        type: Type.ARRAY,
-                        items: { type: Type.STRING },
+                        type: SchemaType.ARRAY,
+                        items: { type: SchemaType.STRING },
                         description: "Technical skills requested"
                     },
                     experienceLevel: {
-                        type: Type.STRING,
+                        type: SchemaType.STRING,
                         description: "Experience level required",
+                        format: "enum",
                         enum: ["Entry Level", "Junior", "Mid-Level", "Senior", "Lead", "Executive", "Not Specified"]
                     },
                     yearsOfExperience: {
-                        type: Type.STRING,
+                        type: SchemaType.STRING,
                         description: "Years of experience required, or null if unspecified"
                     },
                     education: {
-                        type: Type.ARRAY,
-                        items: { type: Type.STRING },
+                        type: SchemaType.ARRAY,
+                        items: { type: SchemaType.STRING },
                         description: "Education degrees required"
                     },
                     certifications: {
-                        type: Type.ARRAY,
-                        items: { type: Type.STRING },
+                        type: SchemaType.ARRAY,
+                        items: { type: SchemaType.STRING },
                         description: "Certifications required"
                     },
                     softSkills: {
-                        type: Type.ARRAY,
-                        items: { type: Type.STRING },
+                        type: SchemaType.ARRAY,
+                        items: { type: SchemaType.STRING },
                         description: "Soft skills requested"
                     },
                     responsibilities: {
-                        type: Type.ARRAY,
-                        items: { type: Type.STRING },
+                        type: SchemaType.ARRAY,
+                        items: { type: SchemaType.STRING },
                         description: "Main job responsibilities"
                     }
                 },
                 required: ["technicalSkills", "experienceLevel", "education", "softSkills", "responsibilities"]
             },
             documentsNeeded: {
-                type: Type.ARRAY,
+                type: SchemaType.ARRAY,
                 items: {
-                    type: Type.STRING,
+                    type: SchemaType.STRING,
+                    format: "enum",
                     enum: ["resume", "cv", "cover_letter"]
                 },
                 description: "What documents are required to apply"
